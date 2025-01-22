@@ -3,7 +3,7 @@
 use crate::base::{encode::VarInt, ref_into::RefInto, scalar::ScalarConversionError};
 use alloc::string::String;
 use bnum::types::U256;
-use core::ops::Sub;
+use core::ops::{Div, Sub};
 use num_bigint::BigInt;
 
 /// A trait for the scalar field used in Proof of SQL.
@@ -20,6 +20,8 @@ pub trait Scalar:
     + core::iter::Sum
     + core::iter::Product
     + Sub<Output = Self>
+    + Div<Output = Self>
+    + core::ops::Rem<Output = Self>
     + Copy
     + core::ops::MulAssign
     + core::ops::AddAssign

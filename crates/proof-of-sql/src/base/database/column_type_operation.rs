@@ -169,6 +169,62 @@ pub fn try_divide_column_types(
     Ok(ColumnType::Decimal75(precision, scale))
 }
 
+/// Determine the output type of a modulus operation if it is possible
+/// to multiply the two input types. If the types are not compatible, return
+/// an error.
+///
+/// # Panics
+///
+/// - Panics if `lhs` or `rhs` does not have a precision or scale when they are expected to be numeric types.
+/// - Panics if `lhs` or `rhs` is an integer, and `lhs.min_integer_type(&rhs)` returns `None`.
+pub fn try_modulus_column_types(
+    lhs: ColumnType,
+    rhs: ColumnType,
+) -> ColumnOperationResult<ColumnType>{
+    if !lhs.is_numeric()
+        || !rhs.is_numeric()
+        || lhs == ColumnType::Scalar
+        || rhs == ColumnType::Scalar
+    {
+        return Err(ColumnOperationError::BinaryOperationInvalidColumnType {
+            operator: "%".to_string(),
+            left_type: lhs,
+            right_type: rhs,
+        });
+    }
+    if lhs.is_integer() && rhs.is_integer() {
+        // We can unwrap here because we know that both types are integers
+        return Ok(lhs.min_integer_type(&rhs).unwrap());
+    }
+    let right_precision_value =
+        i16::from(rhs.precision_value().expect("Numeric types have precision"));
+    let left_scale = i16::from(lhs.scale().expect("Numeric types have scale"));
+    let right_scale = i16::from(rhs.scale().expect("Numeric types have scale"));
+    // TODO: is this correct?
+    let raw_scale = left_scale.max(right_scale);
+    let precision_value = right_precision_value - right_scale + raw_scale;
+    let scale =
+        i8::try_from(raw_scale).map_err(|_| ColumnOperationError::DecimalConversionError {
+            source: DecimalError::InvalidScale {
+                scale: raw_scale.to_string(),
+            },
+        })?;
+    let precision = u8::try_from(precision_value)
+        .map_err(|_| ColumnOperationError::DecimalConversionError {
+            source: DecimalError::InvalidPrecision {
+                error: precision_value.to_string(),
+            },
+        })
+        .and_then(|p| {
+            Precision::new(p).map_err(|_| ColumnOperationError::DecimalConversionError {
+                source: DecimalError::InvalidPrecision {
+                    error: p.to_string(),
+                },
+            })
+        })?;
+    Ok(ColumnType::Decimal75(precision, scale))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -10,11 +10,10 @@ use bnum::types::U256;
 use bytemuck::TransparentWrapper;
 use core::{
     cmp::Ordering,
-    fmt,
-    fmt::{Debug, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     hash::{Hash, Hasher},
     iter::{Product, Sum},
-    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign},
 };
 use num_bigint::BigInt;
 use num_traits::{Signed, Zero};
@@ -47,6 +46,21 @@ impl<T: MontConfig<4>> Mul for MontScalar<T> {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
         Self(self.0 * rhs.0)
+    }
+}
+impl<T: MontConfig<4>> Div for MontScalar<T> {
+    type Output = Self;
+    
+    fn div(self, rhs: Self) -> Self::Output {
+        Self(self.0 / rhs.0)
+    }
+}
+impl<T: MontConfig<4>> Rem for MontScalar<T> {
+    type Output = Self;
+    
+    /// TODO: Verify what happens with negative values
+    fn rem(self, rhs: Self) -> Self::Output {
+        self - ((self / rhs) * rhs)
     }
 }
 impl<T: MontConfig<4>> AddAssign for MontScalar<T> {

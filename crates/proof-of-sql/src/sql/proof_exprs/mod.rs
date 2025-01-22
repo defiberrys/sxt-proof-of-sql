@@ -1,5 +1,9 @@
 //! This module proves provable expressions.
 mod proof_expr;
+mod division_expr;
+mod modulus_expr;
+#[cfg(test)]
+mod division_expr_test;
 pub(crate) use proof_expr::ProofExpr;
 #[cfg(all(test, feature = "blitzar"))]
 mod proof_expr_test;

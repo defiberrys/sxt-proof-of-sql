@@ -185,3 +185,41 @@ pub(crate) fn scale_and_add_subtract_eval<S: Scalar>(
         left_scaled_eval + right_scaled_eval
     }
 }
+
+/// Divide one column by another.
+/// # Panics
+/// Panics if: `lhs` and `rhs` are not of the same length.
+pub(crate) fn divide_columns<'a, S: Scalar>(
+    lhs: &Column<'a, S>,
+    rhs: &Column<'a, S>,
+    alloc: &'a Bump,
+) -> &'a [S] {
+    let lhs_len = lhs.len();
+    let rhs_len = rhs.len();
+    assert!(
+        lhs_len == rhs_len,
+        "lhs and rhs should have the same length"
+    );
+    alloc.alloc_slice_fill_with(lhs_len, |i| {
+        lhs.scalar_at(i).unwrap() / rhs.scalar_at(i).unwrap()
+    })
+}
+
+/// Divide one column by another.
+/// # Panics
+/// Panics if: `lhs` and `rhs` are not of the same length.
+pub(crate) fn remainder_columns<'a, S: Scalar>(
+    lhs: &Column<'a, S>,
+    rhs: &Column<'a, S>,
+    alloc: &'a Bump,
+) -> &'a [S] {
+    let lhs_len = lhs.len();
+    let rhs_len = rhs.len();
+    assert!(
+        lhs_len == rhs_len,
+        "lhs and rhs should have the same length"
+    );
+    alloc.alloc_slice_fill_with(lhs_len, |i| {
+        lhs.scalar_at(i).unwrap() % rhs.scalar_at(i).unwrap()
+    })
+}

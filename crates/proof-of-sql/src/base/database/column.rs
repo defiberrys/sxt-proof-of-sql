@@ -439,6 +439,22 @@ impl ColumnType {
         })
     }
 
+    /// Returns the smaller integer type of two [`ColumnType`]s if they are both integers.
+    ///
+    /// If either of the columns is not an integer, return None.
+    #[must_use]
+    pub fn min_integer_type(&self, other: &Self) -> Option<Self> {
+        // If either of the columns is not an integer, return None
+        if !self.is_integer() || !other.is_integer() {
+            return None;
+        }
+        self.to_integer_bits().and_then(|self_bits| {
+            other
+                .to_integer_bits()
+                .and_then(|other_bits| Self::from_integer_bits(self_bits.min(other_bits)))
+        })
+    }
+
     /// Returns the precision of a [`ColumnType`] if it is converted to a decimal wrapped in `Some()`. If it can not be converted to a decimal, return None.
     #[must_use]
     pub fn precision_value(&self) -> Option<u8> {

@@ -1,6 +1,5 @@
 use super::{
-    AddSubtractExpr, AggregateExpr, AndExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr,
-    MultiplyExpr, NotExpr, OrExpr, ProofExpr,
+    division_expr::DivisionExpr, AddSubtractExpr, AggregateExpr, AndExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr, MultiplyExpr, NotExpr, OrExpr, ProofExpr
 };
 use crate::{
     base::{
@@ -45,6 +44,8 @@ pub enum DynProofExpr {
     Multiply(MultiplyExpr),
     /// Provable aggregate expression
     Aggregate(AggregateExpr),
+    /// Provable numeric `/` expression
+    Divide(DivisionExpr),
 }
 impl DynProofExpr {
     /// Create column expression
@@ -149,6 +150,23 @@ impl DynProofExpr {
         let rhs_datatype = rhs.data_type();
         if type_check_binary_operation(lhs_datatype, rhs_datatype, &BinaryOperator::Multiply) {
             Ok(Self::Multiply(MultiplyExpr::new(
+                Box::new(lhs),
+                Box::new(rhs),
+            )))
+        } else {
+            Err(ConversionError::DataTypeMismatch {
+                left_type: lhs_datatype.to_string(),
+                right_type: rhs_datatype.to_string(),
+            })
+        }
+    }
+
+    /// Create a new multiply expression
+    pub fn try_new_divide(lhs: DynProofExpr, rhs: DynProofExpr) -> ConversionResult<Self> {
+        let lhs_datatype = lhs.data_type();
+        let rhs_datatype = rhs.data_type();
+        if type_check_binary_operation(lhs_datatype, rhs_datatype, &BinaryOperator::Divide) {
+            Ok(Self::Divide(DivisionExpr::new(
                 Box::new(lhs),
                 Box::new(rhs),
             )))
