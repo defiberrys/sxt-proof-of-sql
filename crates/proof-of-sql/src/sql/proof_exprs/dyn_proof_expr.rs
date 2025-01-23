@@ -1,5 +1,6 @@
 use super::{
-    division_expr::DivisionExpr, AddSubtractExpr, AggregateExpr, AndExpr, ColumnExpr, EqualsExpr, InequalityExpr, LiteralExpr, MultiplyExpr, NotExpr, OrExpr, ProofExpr
+    division_expr::DivisionExpr, AddSubtractExpr, AggregateExpr, AndExpr, ColumnExpr, EqualsExpr,
+    InequalityExpr, LiteralExpr, MultiplyExpr, NotExpr, OrExpr, ProofExpr,
 };
 use crate::{
     base::{

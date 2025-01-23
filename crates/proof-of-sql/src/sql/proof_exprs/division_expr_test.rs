@@ -1,9 +1,7 @@
 use crate::{
     base::{
         commitment::InnerProductProof,
-        database::{
-            owned_table_utility::*, OwnedTableTestAccessor,
-        },
+        database::{owned_table_utility::*, OwnedTableTestAccessor},
     },
     sql::{
         proof::{exercise_verification, VerifiableQueryResult},

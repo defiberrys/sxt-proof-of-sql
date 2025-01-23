@@ -1,6 +1,9 @@
-use crate::{base::database::{try_divide_column_types, Column}, sql::proof::SumcheckSubpolynomialType, utils::log};
-
-use super::{numerical_util::{divide_columns, remainder_columns}, DynProofExpr, ProofExpr};
+use super::{numerical_util::{divide_columns, modulo_columns}, DynProofExpr, ProofExpr};
+use crate::{
+    base::database::{try_divide_column_types, Column},
+    sql::proof::SumcheckSubpolynomialType,
+    utils::log,
+};
 use serde::{Deserialize, Serialize};
 
 /// Provable numerical `/` expression
@@ -17,7 +20,7 @@ impl DivisionExpr {
     }
 }
 
-impl ProofExpr for DivisionExpr{
+impl ProofExpr for DivisionExpr {
     fn data_type(&self) -> crate::base::database::ColumnType {
         try_divide_column_types(self.lhs.data_type(), self.rhs.data_type())
             .expect("Failed to divide column types")
@@ -30,8 +33,7 @@ impl ProofExpr for DivisionExpr{
     ) -> crate::base::database::Column<'a, S> {
         let lhs_column: Column<'a, S> = self.lhs.result_evaluate(alloc, table);
         let rhs_column: Column<'a, S> = self.rhs.result_evaluate(alloc, table);
-        let scalars = divide_columns(&lhs_column, &rhs_column, alloc);
-        Column::Scalar(scalars)
+        divide_columns(&lhs_column, &rhs_column, alloc)
     }
 
     fn prover_evaluate<'a, S: crate::base::scalar::Scalar>(
@@ -46,8 +48,8 @@ impl ProofExpr for DivisionExpr{
         let rhs_column: Column<'a, S> = self.rhs.prover_evaluate(builder, alloc, table);
 
         // lhs_divided_by_rhs
-        let lhs_divided_by_rhs: &'a [S] = divide_columns(&lhs_column, &rhs_column, alloc);
-        let lhs_mod_rhs: &'a [S] = remainder_columns(&lhs_column, &rhs_column, alloc);
+        let lhs_divided_by_rhs = divide_columns(&lhs_column, &rhs_column, alloc);
+        let lhs_mod_rhs = modulo_columns(&lhs_column, &rhs_column, alloc);
         builder.produce_intermediate_mle(lhs_divided_by_rhs);
         builder.produce_intermediate_mle(lhs_mod_rhs);
 
@@ -55,16 +57,18 @@ impl ProofExpr for DivisionExpr{
         builder.produce_sumcheck_subpolynomial(
             SumcheckSubpolynomialType::Identity,
             vec![
-                (S::one(), vec![Box::new(lhs_divided_by_rhs), Box::new(rhs_column)]),
+                (
+                    S::one(),
+                    vec![Box::new(lhs_divided_by_rhs), Box::new(rhs_column)],
+                ),
                 (S::one(), vec![Box::new(lhs_mod_rhs)]),
                 (-S::one(), vec![Box::new(lhs_column)]),
             ],
         );
-        let res = Column::Scalar(lhs_divided_by_rhs);
 
         log::log_memory_usage("End");
 
-        res
+        lhs_divided_by_rhs
     }
 
     fn verifier_evaluate<S: crate::base::scalar::Scalar>(
@@ -91,7 +95,10 @@ impl ProofExpr for DivisionExpr{
         Ok(lhs_divided_by_rhs)
     }
 
-    fn get_column_references(&self, columns: &mut crate::base::map::IndexSet<crate::base::database::ColumnRef>) {
+    fn get_column_references(
+        &self,
+        columns: &mut crate::base::map::IndexSet<crate::base::database::ColumnRef>,
+    ) {
         self.lhs.get_column_references(columns);
         self.rhs.get_column_references(columns);
     }

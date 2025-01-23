@@ -4,6 +4,7 @@ use crate::base::{
 };
 use bumpalo::Bump;
 use core::cmp::Ordering;
+use num_traits::{Num, NumCast};
 
 #[allow(clippy::cast_sign_loss)]
 /// Add or subtract two literals together.
@@ -186,6 +187,58 @@ pub(crate) fn scale_and_add_subtract_eval<S: Scalar>(
     }
 }
 
+fn divide_integer_types<
+    'a,
+    L: NumCast + Default + Num + Copy,
+    R: NumCast + Default + Num + Copy,
+>(
+    lhs: &&[L],
+    rhs: &&[R],
+    alloc: &'a Bump,
+    is_right_bigger_int_type: bool,
+) -> &'a [L] {
+    let division = alloc.alloc_slice_fill_with(lhs.len(), |_| L::default());
+    division
+        .iter_mut()
+        .zip(lhs.iter().zip(rhs.iter()))
+        .for_each(|(d, (l, r))| {
+            *d = if is_right_bigger_int_type {
+                let l_cast: R = NumCast::from(*l).unwrap();
+                NumCast::from(l_cast / *r).unwrap()
+            } else {
+                let r_cast: L = NumCast::from(*r).unwrap();
+                *l / r_cast
+            }
+        });
+    division
+}
+
+fn remainder_integer_types<
+    'a,
+    L: NumCast + Default + Num + Copy,
+    R: NumCast + Default + Num + Copy,
+>(
+    lhs: &&[L],
+    rhs: &&[R],
+    alloc: &'a Bump,
+    is_right_bigger_int_type: bool,
+) -> &'a [R] {
+    let remainder = alloc.alloc_slice_fill_with(lhs.len(), |_| R::default());
+    remainder
+        .iter_mut()
+        .zip(lhs.iter().zip(rhs.iter()))
+        .for_each(|(m, (l, r))| {
+            *m = if is_right_bigger_int_type {
+                let l_cast: R = NumCast::from(*l).unwrap();
+                l_cast % *r
+            } else {
+                let r_cast: L = NumCast::from(*r).unwrap();
+                NumCast::from(*l % r_cast).unwrap()
+            }
+        });
+    remainder
+}
+
 /// Divide one column by another.
 /// # Panics
 /// Panics if: `lhs` and `rhs` are not of the same length.
@@ -193,33 +246,233 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
     lhs: &Column<'a, S>,
     rhs: &Column<'a, S>,
     alloc: &'a Bump,
-) -> &'a [S] {
+) -> Column<'a, S> {
     let lhs_len = lhs.len();
     let rhs_len = rhs.len();
     assert!(
         lhs_len == rhs_len,
         "lhs and rhs should have the same length"
     );
-    alloc.alloc_slice_fill_with(lhs_len, |i| {
-        lhs.scalar_at(i).unwrap() / rhs.scalar_at(i).unwrap()
-    })
+    match (lhs, rhs) {
+        (Column::Int128(left), Column::Int128(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::BigInt(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::Int(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::SmallInt(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::TinyInt(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::Uint8(right)) => {
+            Column::Int128(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Int128(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::BigInt(left), Column::BigInt(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Int(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::SmallInt(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::TinyInt(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Uint8(right)) => {
+            Column::BigInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::Int128(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::Int(left), Column::BigInt(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::Int(left), Column::Int(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::SmallInt(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::TinyInt(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::Uint8(right)) => {
+            Column::Int(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::Int128(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::BigInt(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::Int(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::SmallInt(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::TinyInt(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::Uint8(right)) => {
+            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::TinyInt(left), Column::Int128(right)) => {
+            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::BigInt(right)) => {
+            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::Int(right)) => {
+            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::SmallInt(right)) => {
+            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::TinyInt(right)) => {
+            Column::TinyInt(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::Uint8(left), Column::Uint8(right)) => {
+            Column::Uint8(divide_integer_types(left, right, alloc, false))
+        }
+        (Column::TinyInt(left), Column::Uint8(right)) => Column::TinyInt(divide_integer_types(
+            left,
+            &&right
+                .iter()
+                .map(|&x| x as i16)
+                .collect::<Vec<_>>()
+                .as_slice(),
+            alloc,
+            true,
+        )),
+        _ => todo!(),
+    }
 }
 
-/// Divide one column by another.
+/// Take the modulo of one column against another.
 /// # Panics
 /// Panics if: `lhs` and `rhs` are not of the same length.
-pub(crate) fn remainder_columns<'a, S: Scalar>(
+pub(crate) fn modulo_columns<'a, S: Scalar>(
     lhs: &Column<'a, S>,
     rhs: &Column<'a, S>,
     alloc: &'a Bump,
-) -> &'a [S] {
+) -> Column<'a, S> {
     let lhs_len = lhs.len();
     let rhs_len = rhs.len();
     assert!(
         lhs_len == rhs_len,
         "lhs and rhs should have the same length"
     );
-    alloc.alloc_slice_fill_with(lhs_len, |i| {
-        lhs.scalar_at(i).unwrap() % rhs.scalar_at(i).unwrap()
-    })
+    match (lhs, rhs) {
+        (Column::Int128(left), Column::Int128(right)) => {
+            Column::Int128(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::BigInt(right)) => {
+            Column::BigInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::Int(right)) => {
+            Column::Int(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::SmallInt(right)) => {
+            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::TinyInt(right)) => {
+            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int128(left), Column::Uint8(right)) => {
+            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Int128(right)) => {
+            Column::Int128(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::BigInt(left), Column::BigInt(right)) => {
+            Column::BigInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Int(right)) => {
+            Column::Int(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::SmallInt(right)) => {
+            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::TinyInt(right)) => {
+            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::BigInt(left), Column::Uint8(right)) => {
+            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::Int128(right)) => {
+            Column::Int128(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::Int(left), Column::BigInt(right)) => {
+            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::Int(left), Column::Int(right)) => {
+            Column::Int(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::SmallInt(right)) => {
+            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::TinyInt(right)) => {
+            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Int(left), Column::Uint8(right)) => {
+            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::Int128(right)) => {
+            Column::Int128(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::BigInt(right)) => {
+            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::Int(right)) => {
+            Column::Int(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::SmallInt(left), Column::SmallInt(right)) => {
+            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::TinyInt(right)) => {
+            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::SmallInt(left), Column::Uint8(right)) => {
+            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::TinyInt(left), Column::Int128(right)) => {
+            Column::Int128(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::BigInt(right)) => {
+            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::Int(right)) => {
+            Column::Int(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::SmallInt(right)) => {
+            Column::SmallInt(remainder_integer_types(left, right, alloc, true))
+        }
+        (Column::TinyInt(left), Column::TinyInt(right)) => {
+            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::Uint8(left), Column::Uint8(right)) => {
+            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+        }
+        (Column::TinyInt(left), Column::Uint8(right)) => Column::Uint8(remainder_integer_types(
+            &left
+                .iter()
+                .map(|&x| x as i16)
+                .collect::<Vec<_>>()
+                .as_slice(),
+            right,
+            alloc,
+            false,
+        )),
+        _ => todo!(),
+    }
 }

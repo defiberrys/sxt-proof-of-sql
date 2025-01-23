@@ -50,14 +50,14 @@ impl<T: MontConfig<4>> Mul for MontScalar<T> {
 }
 impl<T: MontConfig<4>> Div for MontScalar<T> {
     type Output = Self;
-    
+
     fn div(self, rhs: Self) -> Self::Output {
         Self(self.0 / rhs.0)
     }
 }
 impl<T: MontConfig<4>> Rem for MontScalar<T> {
     type Output = Self;
-    
+
     /// TODO: Verify what happens with negative values
     fn rem(self, rhs: Self) -> Self::Output {
         self - ((self / rhs) * rhs)

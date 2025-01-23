@@ -180,7 +180,7 @@ pub fn try_divide_column_types(
 pub fn try_modulus_column_types(
     lhs: ColumnType,
     rhs: ColumnType,
-) -> ColumnOperationResult<ColumnType>{
+) -> ColumnOperationResult<ColumnType> {
     if !lhs.is_numeric()
         || !rhs.is_numeric()
         || lhs == ColumnType::Scalar
