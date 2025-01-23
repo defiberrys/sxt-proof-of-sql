@@ -124,49 +124,17 @@ pub fn try_divide_column_types(
     lhs: ColumnType,
     rhs: ColumnType,
 ) -> ColumnOperationResult<ColumnType> {
-    if !lhs.is_numeric()
-        || !rhs.is_numeric()
-        || lhs == ColumnType::Scalar
-        || rhs == ColumnType::Scalar
+    if (lhs.is_integer() && (rhs.is_integer() || rhs == ColumnType::Uint8))
+        || (lhs == ColumnType::Uint8 && rhs == ColumnType::Uint8)
     {
+        return Ok(lhs);
+    } else {
         return Err(ColumnOperationError::BinaryOperationInvalidColumnType {
             operator: "/".to_string(),
             left_type: lhs,
             right_type: rhs,
         });
     }
-    if lhs.is_integer() && rhs.is_integer() {
-        // We can unwrap here because we know that both types are integers
-        return Ok(lhs.max_integer_type(&rhs).unwrap());
-    }
-    let left_precision_value =
-        i16::from(lhs.precision_value().expect("Numeric types have precision"));
-    let right_precision_value =
-        i16::from(rhs.precision_value().expect("Numeric types have precision"));
-    let left_scale = i16::from(lhs.scale().expect("Numeric types have scale"));
-    let right_scale = i16::from(rhs.scale().expect("Numeric types have scale"));
-    let raw_scale = (left_scale + right_precision_value + 1_i16).max(6_i16);
-    let precision_value: i16 = left_precision_value - left_scale + right_scale + raw_scale;
-    let scale =
-        i8::try_from(raw_scale).map_err(|_| ColumnOperationError::DecimalConversionError {
-            source: DecimalError::InvalidScale {
-                scale: raw_scale.to_string(),
-            },
-        })?;
-    let precision = u8::try_from(precision_value)
-        .map_err(|_| ColumnOperationError::DecimalConversionError {
-            source: DecimalError::InvalidPrecision {
-                error: precision_value.to_string(),
-            },
-        })
-        .and_then(|p| {
-            Precision::new(p).map_err(|_| ColumnOperationError::DecimalConversionError {
-                source: DecimalError::InvalidPrecision {
-                    error: p.to_string(),
-                },
-            })
-        })?;
-    Ok(ColumnType::Decimal75(precision, scale))
 }
 
 /// Determine the output type of a modulus operation if it is possible

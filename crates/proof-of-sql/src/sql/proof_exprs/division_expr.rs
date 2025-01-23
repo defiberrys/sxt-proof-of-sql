@@ -1,7 +1,14 @@
-use super::{add_subtract_columns, numerical_util::{divide_columns, modulo_columns}, DynProofExpr, ProofExpr};
+use super::{
+    add_subtract_columns,
+    numerical_util::{divide_columns, modulo_columns},
+    DynProofExpr, ProofExpr,
+};
 use crate::{
     base::database::{try_divide_column_types, Column},
-    sql::{proof::SumcheckSubpolynomialType, proof_gadgets::{prover_evaluate_sign, verifier_evaluate_sign}},
+    sql::{
+        proof::SumcheckSubpolynomialType,
+        proof_gadgets::{prover_evaluate_sign, verifier_evaluate_sign},
+    },
     utils::log,
 };
 use serde::{Deserialize, Serialize};
@@ -67,13 +74,13 @@ impl ProofExpr for DivisionExpr {
         );
 
         // remainder >= 0
-        let remainder_scalars = alloc.alloc_slice_fill_with(lhs_mod_rhs.len(), |i| {
-            lhs_mod_rhs.scalar_at(i).unwrap()
-        });
+        let remainder_scalars =
+            alloc.alloc_slice_fill_with(lhs_mod_rhs.len(), |i| lhs_mod_rhs.scalar_at(i).unwrap());
         prover_evaluate_sign(builder, alloc, remainder_scalars);
 
         // remainder - rhs < 0
-        let remainder_less_scalars = add_subtract_columns(lhs_mod_rhs, rhs_column, 0, 0, alloc, true);
+        let remainder_less_scalars =
+            add_subtract_columns(lhs_mod_rhs, rhs_column, 0, 0, alloc, true);
         prover_evaluate_sign(builder, alloc, remainder_less_scalars);
 
         log::log_memory_usage("End");

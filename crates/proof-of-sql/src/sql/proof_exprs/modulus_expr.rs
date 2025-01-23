@@ -1,4 +1,7 @@
-use super::{numerical_util::{divide_columns, modulo_columns}, DynProofExpr, ProofExpr};
+use super::{
+    numerical_util::{divide_columns, modulo_columns},
+    DynProofExpr, ProofExpr,
+};
 use crate::{
     base::database::{try_modulus_column_types, Column},
     sql::proof::SumcheckSubpolynomialType,
