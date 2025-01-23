@@ -187,7 +187,7 @@ pub(crate) fn scale_and_add_subtract_eval<S: Scalar>(
     }
 }
 
-fn divide_integer_types<
+fn divide_integer_columns<
     'a,
     L: NumCast + Default + Num + Copy,
     R: NumCast + Default + Num + Copy,
@@ -213,7 +213,7 @@ fn divide_integer_types<
     division
 }
 
-fn remainder_integer_types<
+fn modulo_integer_columns<
     'a,
     L: NumCast + Default + Num + Copy,
     R: NumCast + Default + Num + Copy,
@@ -255,96 +255,96 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
     );
     match (lhs, rhs) {
         (Column::Int128(left), Column::Int128(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::BigInt(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::Int(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::SmallInt(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::TinyInt(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::Uint8(right)) => {
-            Column::Int128(divide_integer_types(left, right, alloc, false))
+            Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int128(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, true))
+            Column::BigInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::BigInt(left), Column::BigInt(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, false))
+            Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, false))
+            Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::SmallInt(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, false))
+            Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::TinyInt(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, false))
+            Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Uint8(right)) => {
-            Column::BigInt(divide_integer_types(left, right, alloc, false))
+            Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Int128(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, true))
+            Column::Int(divide_integer_columns(left, right, alloc, true))
         }
         (Column::Int(left), Column::BigInt(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, true))
+            Column::Int(divide_integer_columns(left, right, alloc, true))
         }
         (Column::Int(left), Column::Int(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, false))
+            Column::Int(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::SmallInt(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, false))
+            Column::Int(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::TinyInt(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, false))
+            Column::Int(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Uint8(right)) => {
-            Column::Int(divide_integer_types(left, right, alloc, false))
+            Column::Int(divide_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::Int128(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::BigInt(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::Int(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, true))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::SmallInt(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::TinyInt(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::Uint8(right)) => {
-            Column::SmallInt(divide_integer_types(left, right, alloc, false))
+            Column::SmallInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::TinyInt(left), Column::Int128(right)) => {
-            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+            Column::TinyInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::BigInt(right)) => {
-            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+            Column::TinyInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::Int(right)) => {
-            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+            Column::TinyInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::SmallInt(right)) => {
-            Column::TinyInt(divide_integer_types(left, right, alloc, true))
+            Column::TinyInt(divide_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(divide_integer_types(left, right, alloc, false))
+            Column::TinyInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Uint8(left), Column::Uint8(right)) => {
-            Column::Uint8(divide_integer_types(left, right, alloc, false))
+            Column::Uint8(divide_integer_columns(left, right, alloc, false))
         }
-        (Column::TinyInt(left), Column::Uint8(right)) => Column::TinyInt(divide_integer_types(
+        (Column::TinyInt(left), Column::Uint8(right)) => Column::TinyInt(divide_integer_columns(
             left,
             &&right
                 .iter()
@@ -374,96 +374,96 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
     );
     match (lhs, rhs) {
         (Column::Int128(left), Column::Int128(right)) => {
-            Column::Int128(remainder_integer_types(left, right, alloc, false))
+            Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::BigInt(right)) => {
-            Column::BigInt(remainder_integer_types(left, right, alloc, false))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::Int(right)) => {
-            Column::Int(remainder_integer_types(left, right, alloc, false))
+            Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::SmallInt(right)) => {
-            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::TinyInt(right)) => {
-            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::Uint8(right)) => {
-            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int128(right)) => {
-            Column::Int128(remainder_integer_types(left, right, alloc, true))
+            Column::Int128(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::BigInt(left), Column::BigInt(right)) => {
-            Column::BigInt(remainder_integer_types(left, right, alloc, false))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int(right)) => {
-            Column::Int(remainder_integer_types(left, right, alloc, false))
+            Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::SmallInt(right)) => {
-            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Uint8(right)) => {
-            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Int128(right)) => {
-            Column::Int128(remainder_integer_types(left, right, alloc, true))
+            Column::Int128(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::Int(left), Column::BigInt(right)) => {
-            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::Int(left), Column::Int(right)) => {
-            Column::Int(remainder_integer_types(left, right, alloc, false))
+            Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::SmallInt(right)) => {
-            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::TinyInt(right)) => {
-            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Uint8(right)) => {
-            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::Int128(right)) => {
-            Column::Int128(remainder_integer_types(left, right, alloc, true))
+            Column::Int128(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::BigInt(right)) => {
-            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::Int(right)) => {
-            Column::Int(remainder_integer_types(left, right, alloc, true))
+            Column::Int(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::SmallInt(left), Column::SmallInt(right)) => {
-            Column::SmallInt(remainder_integer_types(left, right, alloc, false))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::Uint8(right)) => {
-            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::TinyInt(left), Column::Int128(right)) => {
-            Column::Int128(remainder_integer_types(left, right, alloc, true))
+            Column::Int128(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::BigInt(right)) => {
-            Column::BigInt(remainder_integer_types(left, right, alloc, true))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::Int(right)) => {
-            Column::Int(remainder_integer_types(left, right, alloc, true))
+            Column::Int(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::SmallInt(right)) => {
-            Column::SmallInt(remainder_integer_types(left, right, alloc, true))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, true))
         }
         (Column::TinyInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(remainder_integer_types(left, right, alloc, false))
+            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Uint8(left), Column::Uint8(right)) => {
-            Column::Uint8(remainder_integer_types(left, right, alloc, false))
+            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
         }
-        (Column::TinyInt(left), Column::Uint8(right)) => Column::Uint8(remainder_integer_types(
+        (Column::TinyInt(left), Column::Uint8(right)) => Column::Uint8(modulo_integer_columns(
             &left
                 .iter()
                 .map(|&x| x as i16)

@@ -120,11 +120,11 @@ pub fn try_multiply_column_types(
 ///
 /// - Panics if `lhs` or `rhs` does not have a precision or scale when they are expected to be numeric types.
 /// - Panics if `lhs` or `rhs` is an integer, and `lhs.max_integer_type(&rhs)` returns `None`.
-pub fn try_divide_column_types(
+pub fn try_divide_modulo_column_types(
     lhs: ColumnType,
     rhs: ColumnType,
 ) -> ColumnOperationResult<ColumnType> {
-    if (lhs.is_integer() && (rhs.is_integer() || rhs == ColumnType::Uint8))
+    if (lhs.is_integer() && lhs.is_signed() && rhs.is_integer())
         || (lhs == ColumnType::Uint8 && rhs == ColumnType::Uint8)
     {
         return Ok(lhs);
@@ -135,62 +135,6 @@ pub fn try_divide_column_types(
             right_type: rhs,
         });
     }
-}
-
-/// Determine the output type of a modulus operation if it is possible
-/// to multiply the two input types. If the types are not compatible, return
-/// an error.
-///
-/// # Panics
-///
-/// - Panics if `lhs` or `rhs` does not have a precision or scale when they are expected to be numeric types.
-/// - Panics if `lhs` or `rhs` is an integer, and `lhs.min_integer_type(&rhs)` returns `None`.
-pub fn try_modulus_column_types(
-    lhs: ColumnType,
-    rhs: ColumnType,
-) -> ColumnOperationResult<ColumnType> {
-    if !lhs.is_numeric()
-        || !rhs.is_numeric()
-        || lhs == ColumnType::Scalar
-        || rhs == ColumnType::Scalar
-    {
-        return Err(ColumnOperationError::BinaryOperationInvalidColumnType {
-            operator: "%".to_string(),
-            left_type: lhs,
-            right_type: rhs,
-        });
-    }
-    if lhs.is_integer() && rhs.is_integer() {
-        // We can unwrap here because we know that both types are integers
-        return Ok(lhs.min_integer_type(&rhs).unwrap());
-    }
-    let right_precision_value =
-        i16::from(rhs.precision_value().expect("Numeric types have precision"));
-    let left_scale = i16::from(lhs.scale().expect("Numeric types have scale"));
-    let right_scale = i16::from(rhs.scale().expect("Numeric types have scale"));
-    // TODO: is this correct?
-    let raw_scale = left_scale.max(right_scale);
-    let precision_value = right_precision_value - right_scale + raw_scale;
-    let scale =
-        i8::try_from(raw_scale).map_err(|_| ColumnOperationError::DecimalConversionError {
-            source: DecimalError::InvalidScale {
-                scale: raw_scale.to_string(),
-            },
-        })?;
-    let precision = u8::try_from(precision_value)
-        .map_err(|_| ColumnOperationError::DecimalConversionError {
-            source: DecimalError::InvalidPrecision {
-                error: precision_value.to_string(),
-            },
-        })
-        .and_then(|p| {
-            Precision::new(p).map_err(|_| ColumnOperationError::DecimalConversionError {
-                source: DecimalError::InvalidPrecision {
-                    error: p.to_string(),
-                },
-            })
-        })?;
-    Ok(ColumnType::Decimal75(precision, scale))
 }
 
 #[cfg(test)]
@@ -627,79 +571,79 @@ mod test {
         // lhs and rhs are integers with the same precision
         let lhs = ColumnType::TinyInt;
         let rhs = ColumnType::TinyInt;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::TinyInt;
         assert_eq!(expected, actual);
 
         let lhs = ColumnType::SmallInt;
         let rhs = ColumnType::SmallInt;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::SmallInt;
         assert_eq!(expected, actual);
 
         // lhs and rhs are integers with different precision
         let lhs = ColumnType::TinyInt;
         let rhs = ColumnType::SmallInt;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::SmallInt;
         assert_eq!(expected, actual);
 
         let lhs = ColumnType::SmallInt;
         let rhs = ColumnType::Int;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Int;
         assert_eq!(expected, actual);
 
         // lhs is a decimal with nonnegative scale and rhs is an integer
         let lhs = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
         let rhs = ColumnType::TinyInt;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(14).unwrap(), 6);
         assert_eq!(expected, actual);
 
         let lhs = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
         let rhs = ColumnType::SmallInt;
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(16).unwrap(), 8);
         assert_eq!(expected, actual);
 
         // lhs is an integer and rhs is a decimal with nonnegative scale
         let lhs = ColumnType::TinyInt;
         let rhs = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(16).unwrap(), 11);
         assert_eq!(expected, actual);
 
         let lhs = ColumnType::SmallInt;
         let rhs = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(18).unwrap(), 11);
         assert_eq!(expected, actual);
 
         // lhs and rhs are both decimals with nonnegative scale
         let lhs = ColumnType::Decimal75(Precision::new(20).unwrap(), 3);
         let rhs = ColumnType::Decimal75(Precision::new(10).unwrap(), 2);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(33).unwrap(), 14);
         assert_eq!(expected, actual);
 
         // lhs is an integer and rhs is a decimal with negative scale
         let lhs = ColumnType::TinyInt;
         let rhs = ColumnType::Decimal75(Precision::new(10).unwrap(), -2);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(12).unwrap(), 11);
         assert_eq!(expected, actual);
 
         let lhs = ColumnType::SmallInt;
         let rhs = ColumnType::Decimal75(Precision::new(10).unwrap(), -2);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(14).unwrap(), 11);
         assert_eq!(expected, actual);
 
         // lhs and rhs are both decimals one of which has negative scale
         let lhs = ColumnType::Decimal75(Precision::new(40).unwrap(), -13);
         let rhs = ColumnType::Decimal75(Precision::new(15).unwrap(), 5);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(64).unwrap(), 6);
         assert_eq!(expected, actual);
 
@@ -707,7 +651,7 @@ mod test {
         // and with result having maximum precision
         let lhs = ColumnType::Decimal75(Precision::new(70).unwrap(), -13);
         let rhs = ColumnType::Decimal75(Precision::new(13).unwrap(), -14);
-        let actual = try_divide_column_types(lhs, rhs).unwrap();
+        let actual = try_divide_modulo_column_types(lhs, rhs).unwrap();
         let expected = ColumnType::Decimal75(Precision::new(75).unwrap(), 6);
         assert_eq!(expected, actual);
     }
@@ -717,28 +661,28 @@ mod test {
         let lhs = ColumnType::TinyInt;
         let rhs = ColumnType::VarChar;
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
 
         let lhs = ColumnType::SmallInt;
         let rhs = ColumnType::VarChar;
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
 
         let lhs = ColumnType::VarChar;
         let rhs = ColumnType::VarChar;
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
 
         let lhs = ColumnType::Scalar;
         let rhs = ColumnType::Scalar;
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::BinaryOperationInvalidColumnType { .. })
         ));
     }
@@ -749,7 +693,7 @@ mod test {
         let lhs = ColumnType::Decimal75(Precision::new(71).unwrap(), -13);
         let rhs = ColumnType::Decimal75(Precision::new(13).unwrap(), -14);
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::DecimalConversionError {
                 source: DecimalError::InvalidPrecision { .. }
             })
@@ -758,7 +702,7 @@ mod test {
         let lhs = ColumnType::Int;
         let rhs = ColumnType::Decimal75(Precision::new(68).unwrap(), 67);
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::DecimalConversionError {
                 source: DecimalError::InvalidPrecision { .. }
             })
@@ -768,7 +712,7 @@ mod test {
         let lhs = ColumnType::Decimal75(Precision::new(15).unwrap(), 53_i8);
         let rhs = ColumnType::Decimal75(Precision::new(75).unwrap(), 40_i8);
         assert!(matches!(
-            try_divide_column_types(lhs, rhs),
+            try_divide_modulo_column_types(lhs, rhs),
             Err(ColumnOperationError::DecimalConversionError {
                 source: DecimalError::InvalidScale { .. }
             })

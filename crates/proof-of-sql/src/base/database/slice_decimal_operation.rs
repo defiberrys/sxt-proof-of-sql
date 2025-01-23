@@ -2,7 +2,8 @@ use super::{ColumnOperationError, ColumnOperationResult};
 use crate::base::{
     database::{
         column_type_operation::{
-            try_add_subtract_column_types, try_divide_column_types, try_multiply_column_types,
+            try_add_subtract_column_types, try_divide_modulo_column_types,
+            try_multiply_column_types,
         },
         ColumnType,
     },
@@ -426,7 +427,7 @@ where
     T0: Copy + Debug + Into<BigInt>,
     T1: Copy + Debug + Into<BigInt>,
 {
-    let new_column_type = try_divide_column_types(left_column_type, right_column_type)?;
+    let new_column_type = try_divide_modulo_column_types(left_column_type, right_column_type)?;
     let new_precision_value = new_column_type
         .precision_value()
         .expect("numeric columns have precision");
