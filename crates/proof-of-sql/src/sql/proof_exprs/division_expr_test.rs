@@ -66,7 +66,7 @@ fn we_can_prove_int_division_query() {
             "bd",
         ), 
         aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "f", &accessor)),
+            divide(column(t, "b", &accessor), column(t, "e", &accessor)),
             "be",
         ), 
         aliased_plan(
@@ -79,9 +79,9 @@ fn we_can_prove_int_division_query() {
     exercise_verification(&verifiable_res, &ast, &accessor, t);
     let res = verifiable_res.verify(&ast, &accessor, &()).unwrap().table;
     let expected_res = owned_table([
-        tinyint("b2", [1_i8, -58, 3, 113]),
-        tinyint("bc", [0_i8, -4, 0, 0]),
-        tinyint("bd", [0_i8, 0, 0, 2]),
+        tinyint("b2", [1_i8, -57, 3, 63]),
+        tinyint("bc", [0_i8, -3, 0, 0]),
+        tinyint("bd", [0_i8, 1, 0, 2]),
         tinyint("be", [0_i8, 1, 0, 1]),
         tinyint("bf", [0_i8, 0, 0, 0])
     ]);
