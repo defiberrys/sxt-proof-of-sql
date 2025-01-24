@@ -124,7 +124,7 @@ pub fn try_divide_modulo_column_types(
     lhs: ColumnType,
     rhs: ColumnType,
 ) -> ColumnOperationResult<ColumnType> {
-    if (lhs.is_integer() && lhs.is_signed() && rhs.is_integer())
+    if (lhs.is_integer() && lhs.is_signed() && rhs.is_integer() && lhs.is_signed())
         || (lhs == ColumnType::Uint8 && rhs == ColumnType::Uint8)
     {
         return Ok(lhs);

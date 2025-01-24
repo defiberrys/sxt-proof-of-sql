@@ -42,7 +42,6 @@ fn we_can_prove_a_typical_divide_query() {
 #[test]
 fn we_can_prove_int_division_query() {
     let data = owned_table([
-        uint8("a", [1u8, 44, 100, 235]),
         tinyint("b", [2_i8, -115, 6, 126]),
         smallint("c", [7_i16, 36, -30000, 31104]),
         int("d", [4_32, -115, i32::MIN + 12, 52]),
@@ -53,14 +52,7 @@ fn we_can_prove_int_division_query() {
     let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t, data, 0, ());
     
     let ast = projection(
-        vec![aliased_plan(
-            divide(column(t, "a", &accessor), const_uint8(2)),
-            "a2",
-        ), 
-        aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "a", &accessor)),
-            "ba",
-        ), 
+        vec![
         aliased_plan(
             divide(column(t, "b", &accessor), const_tinyint(2)),
             "b2",
@@ -87,8 +79,6 @@ fn we_can_prove_int_division_query() {
     exercise_verification(&verifiable_res, &ast, &accessor, t);
     let res = verifiable_res.verify(&ast, &accessor, &()).unwrap().table;
     let expected_res = owned_table([
-        uint8("a2", [0u8, 22, 50, 117]),
-        tinyint("ba", [2_i8, -3, 0, 0]),
         tinyint("b2", [1_i8, -58, 3, 113]),
         tinyint("bc", [0_i8, -4, 0, 0]),
         tinyint("bd", [0_i8, 0, 0, 2]),

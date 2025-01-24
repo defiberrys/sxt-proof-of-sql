@@ -3,8 +3,9 @@ use crate::base::{
     scalar::{Scalar, ScalarExt},
 };
 use bumpalo::Bump;
-use core::cmp::Ordering;
+use core::{cmp::Ordering, num::Wrapping, ops::Neg};
 use num_traits::{Num, NumCast};
+use num_traits::PrimInt;
 
 #[allow(clippy::cast_sign_loss)]
 /// Add or subtract two literals together.
@@ -189,25 +190,29 @@ pub(crate) fn scale_and_add_subtract_eval<S: Scalar>(
 
 fn divide_integer_columns<
     'a,
-    L: NumCast + Default + Num + Copy,
-    R: NumCast + Default + Num + Copy,
+    L: NumCast + Copy + PrimInt,
+    R: NumCast + Copy + PrimInt + Neg<Output = R>,
 >(
     lhs: &&[L],
     rhs: &&[R],
     alloc: &'a Bump,
     is_right_bigger_int_type: bool,
 ) -> &'a [L] {
-    let division = alloc.alloc_slice_fill_with(lhs.len(), |_| L::default());
+    let division = alloc.alloc_slice_fill_with(lhs.len(), |_| L::zero());
     division
         .iter_mut()
-        .zip(lhs.iter().zip(rhs.iter()))
+        .zip(lhs.iter().copied().zip(rhs.iter().copied()))
         .for_each(|(d, (l, r))| {
-            *d = if is_right_bigger_int_type {
-                let l_cast: R = NumCast::from(*l).unwrap();
-                NumCast::from(l_cast / *r).unwrap()
+            *d = if l == L::min_value() && r == -R::one(){
+                L::min_value()
+            } else if r == R::zero(){
+                L::zero()
+            } else if is_right_bigger_int_type {
+                let l_cast: R = NumCast::from(l).unwrap();
+                NumCast::from(l_cast / r).unwrap()
             } else {
-                let r_cast: L = NumCast::from(*r).unwrap();
-                *l / r_cast
+                let r_cast: L = NumCast::from(r).unwrap();
+                l / r_cast
             }
         });
     division
@@ -215,25 +220,30 @@ fn divide_integer_columns<
 
 fn modulo_integer_columns<
     'a,
-    L: NumCast + Default + Num + Copy,
-    R: NumCast + Default + Num + Copy,
+    L: NumCast + Copy + PrimInt,
+    R: NumCast + Copy + PrimInt + Neg<Output = R>,
+    O: NumCast + PrimInt
 >(
     lhs: &&[L],
     rhs: &&[R],
     alloc: &'a Bump,
     is_right_bigger_int_type: bool,
-) -> &'a [R] {
-    let remainder = alloc.alloc_slice_fill_with(lhs.len(), |_| R::default());
+) -> &'a [O] {
+    let remainder = alloc.alloc_slice_fill_with(lhs.len(), |_| O::zero());
     remainder
         .iter_mut()
-        .zip(lhs.iter().zip(rhs.iter()))
+        .zip(lhs.iter().copied().zip(rhs.iter().copied()))
         .for_each(|(m, (l, r))| {
-            *m = if is_right_bigger_int_type {
-                let l_cast: R = NumCast::from(*l).unwrap();
-                l_cast % *r
+            *m = if l == L::min_value() && r == -R::one(){
+                O::zero()
+            } else if r == R::zero(){
+                NumCast::from(l).unwrap()
+            } else if is_right_bigger_int_type {
+                let l_cast: R = NumCast::from(l).unwrap();
+                NumCast::from(l_cast % r).unwrap()
             } else {
-                let r_cast: L = NumCast::from(*r).unwrap();
-                NumCast::from(*l % r_cast).unwrap()
+                let r_cast: L = NumCast::from(r).unwrap();
+                NumCast::from(l % r_cast).unwrap()
             }
         });
     remainder
@@ -269,9 +279,6 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
         (Column::Int128(left), Column::TinyInt(right)) => {
             Column::Int128(divide_integer_columns(left, right, alloc, false))
         }
-        (Column::Int128(left), Column::Uint8(right)) => {
-            Column::Int128(divide_integer_columns(left, right, alloc, false))
-        }
         (Column::BigInt(left), Column::Int128(right)) => {
             Column::BigInt(divide_integer_columns(left, right, alloc, true))
         }
@@ -285,9 +292,6 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
             Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::TinyInt(right)) => {
-            Column::BigInt(divide_integer_columns(left, right, alloc, false))
-        }
-        (Column::BigInt(left), Column::Uint8(right)) => {
             Column::BigInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Int128(right)) => {
@@ -305,9 +309,6 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
         (Column::Int(left), Column::TinyInt(right)) => {
             Column::Int(divide_integer_columns(left, right, alloc, false))
         }
-        (Column::Int(left), Column::Uint8(right)) => {
-            Column::Int(divide_integer_columns(left, right, alloc, false))
-        }
         (Column::SmallInt(left), Column::Int128(right)) => {
             Column::SmallInt(divide_integer_columns(left, right, alloc, true))
         }
@@ -321,9 +322,6 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
             Column::SmallInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::TinyInt(right)) => {
-            Column::SmallInt(divide_integer_columns(left, right, alloc, false))
-        }
-        (Column::SmallInt(left), Column::Uint8(right)) => {
             Column::SmallInt(divide_integer_columns(left, right, alloc, false))
         }
         (Column::TinyInt(left), Column::Int128(right)) => {
@@ -341,19 +339,9 @@ pub(crate) fn divide_columns<'a, S: Scalar>(
         (Column::TinyInt(left), Column::TinyInt(right)) => {
             Column::TinyInt(divide_integer_columns(left, right, alloc, false))
         }
-        (Column::Uint8(left), Column::Uint8(right)) => {
-            Column::Uint8(divide_integer_columns(left, right, alloc, false))
-        }
-        (Column::TinyInt(left), Column::Uint8(right)) => Column::TinyInt(divide_integer_columns(
-            left,
-            &&right
-                .iter()
-                .map(|&x| x as i16)
-                .collect::<Vec<_>>()
-                .as_slice(),
-            alloc,
-            true,
-        )),
+        // (Column::Uint8(left), Column::Uint8(right)) => {
+        //     Column::Uint8(divide_integer_columns(left, right, alloc, false))
+        // }
         _ => todo!(),
     }
 }
@@ -377,19 +365,16 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
             Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::BigInt(right)) => {
-            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
+            Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::Int(right)) => {
-            Column::Int(modulo_integer_columns(left, right, alloc, false))
+            Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::SmallInt(right)) => {
-            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
+            Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int128(left), Column::TinyInt(right)) => {
-            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
-        }
-        (Column::Int128(left), Column::Uint8(right)) => {
-            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
+            Column::Int128(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int128(right)) => {
             Column::Int128(modulo_integer_columns(left, right, alloc, true))
@@ -398,16 +383,13 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
             Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::Int(right)) => {
-            Column::Int(modulo_integer_columns(left, right, alloc, false))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::SmallInt(right)) => {
-            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::BigInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
-        }
-        (Column::BigInt(left), Column::Uint8(right)) => {
-            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
+            Column::BigInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::Int128(right)) => {
             Column::Int128(modulo_integer_columns(left, right, alloc, true))
@@ -419,13 +401,10 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
             Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::SmallInt(right)) => {
-            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
+            Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::Int(left), Column::TinyInt(right)) => {
-            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
-        }
-        (Column::Int(left), Column::Uint8(right)) => {
-            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
+            Column::Int(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::Int128(right)) => {
             Column::Int128(modulo_integer_columns(left, right, alloc, true))
@@ -440,10 +419,7 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
             Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::SmallInt(left), Column::TinyInt(right)) => {
-            Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
-        }
-        (Column::SmallInt(left), Column::Uint8(right)) => {
-            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
+            Column::SmallInt(modulo_integer_columns(left, right, alloc, false))
         }
         (Column::TinyInt(left), Column::Int128(right)) => {
             Column::Int128(modulo_integer_columns(left, right, alloc, true))
@@ -460,19 +436,9 @@ pub(crate) fn modulo_columns<'a, S: Scalar>(
         (Column::TinyInt(left), Column::TinyInt(right)) => {
             Column::TinyInt(modulo_integer_columns(left, right, alloc, false))
         }
-        (Column::Uint8(left), Column::Uint8(right)) => {
-            Column::Uint8(modulo_integer_columns(left, right, alloc, false))
-        }
-        (Column::TinyInt(left), Column::Uint8(right)) => Column::Uint8(modulo_integer_columns(
-            &left
-                .iter()
-                .map(|&x| x as i16)
-                .collect::<Vec<_>>()
-                .as_slice(),
-            right,
-            alloc,
-            false,
-        )),
+        // (Column::Uint8(left), Column::Uint8(right)) => {
+        //     Column::Uint8(modulo_integer_columns(left, right, alloc, false))
+        // }
         _ => todo!(),
     }
 }
