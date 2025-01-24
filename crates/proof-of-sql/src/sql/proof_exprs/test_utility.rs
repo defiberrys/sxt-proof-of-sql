@@ -96,6 +96,14 @@ pub fn const_bool(val: bool) -> DynProofExpr {
     DynProofExpr::new_literal(LiteralValue::Boolean(val))
 }
 
+pub fn const_uint8(val: u8) -> DynProofExpr {
+    DynProofExpr::new_literal(LiteralValue::Uint8(val))
+}
+
+pub fn const_tinyint(val: i8) -> DynProofExpr {
+    DynProofExpr::new_literal(LiteralValue::TinyInt(val))
+}
+
 pub fn const_smallint(val: i16) -> DynProofExpr {
     DynProofExpr::new_literal(LiteralValue::SmallInt(val))
 }

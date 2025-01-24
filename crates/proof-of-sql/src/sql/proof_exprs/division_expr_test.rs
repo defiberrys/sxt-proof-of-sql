@@ -1,3 +1,5 @@
+use core::i128;
+
 use crate::{
     base::{
         commitment::InnerProductProof,
@@ -14,14 +16,14 @@ use crate::{
 #[test]
 fn we_can_prove_a_typical_divide_query() {
     let data = owned_table([
-        smallint("a", [1_i16, 2, 3, 4]),
+        tinyint("a", [1_i8, 2, 3, 4]),
         decimal75("d", 2, 1, [21_i64, 4, 21, -7]),
     ]);
     let t = "sxt.t".parse().unwrap();
     let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t, data, 0, ());
     let ast = filter(
         vec![aliased_plan(
-            divide(column(t, "a", &accessor), const_int(2)),
+            divide(column(t, "a", &accessor), const_uint8(2)),
             "a",
         )],
         tab(t),
@@ -33,6 +35,65 @@ fn we_can_prove_a_typical_divide_query() {
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &());
     exercise_verification(&verifiable_res, &ast, &accessor, t);
     let res = verifiable_res.verify(&ast, &accessor, &()).unwrap().table;
-    let expected_res = owned_table([smallint("a", [0_i16, 1])]);
+    let expected_res = owned_table([tinyint("a", [0_i8, 1])]);
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn we_can_prove_int_division_query() {
+    let data = owned_table([
+        uint8("a", [1u8, 44, 100, 235]),
+        tinyint("b", [2_i8, -115, 6, 126]),
+        smallint("c", [7_i16, 36, -30000, 31104]),
+        int("d", [4_32, -115, i32::MIN + 12, 52]),
+        bigint("e", [i64::MIN + 366, -68, i64::MAX, 126]),
+        int128("f", [6_i128, i128::MIN + 3, 99, i128::MAX - 6]),
+    ]);
+    let t = "sxt.t".parse().unwrap();
+    let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t, data, 0, ());
+    
+    let ast = projection(
+        vec![aliased_plan(
+            divide(column(t, "a", &accessor), const_uint8(2)),
+            "a2",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), column(t, "a", &accessor)),
+            "ba",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), const_tinyint(2)),
+            "b2",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), column(t, "c", &accessor)),
+            "bc",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), column(t, "d", &accessor)),
+            "bd",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), column(t, "f", &accessor)),
+            "be",
+        ), 
+        aliased_plan(
+            divide(column(t, "b", &accessor), column(t, "f", &accessor)),
+            "bf",
+        )],
+        tab(t),
+    );
+    let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &());
+    exercise_verification(&verifiable_res, &ast, &accessor, t);
+    let res = verifiable_res.verify(&ast, &accessor, &()).unwrap().table;
+    let expected_res = owned_table([
+        uint8("a2", [0u8, 22, 50, 117]),
+        tinyint("ba", [2_i8, -3, 0, 0]),
+        tinyint("b2", [1_i8, -58, 3, 113]),
+        tinyint("bc", [0_i8, -4, 0, 0]),
+        tinyint("bd", [0_i8, 0, 0, 2]),
+        tinyint("be", [0_i8, 1, 0, 1]),
+        tinyint("bf", [0_i8, 0, 0, 0])
+    ]);
     assert_eq!(res, expected_res);
 }
