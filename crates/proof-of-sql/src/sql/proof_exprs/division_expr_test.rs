@@ -1,5 +1,3 @@
-use core::i128;
-
 use crate::{
     base::{
         commitment::InnerProductProof,
@@ -11,6 +9,7 @@ use crate::{
         proof_plans::test_utility::*,
     },
 };
+use core::i128;
 
 // select a / 2 as a from sxt.t where d * 3.9 = 8.19
 #[test]
@@ -50,29 +49,27 @@ fn we_can_prove_int_division_query() {
     ]);
     let t = "sxt.t".parse().unwrap();
     let accessor = OwnedTableTestAccessor::<InnerProductProof>::new_from_table(t, data, 0, ());
-    
+
     let ast = projection(
         vec![
-        aliased_plan(
-            divide(column(t, "b", &accessor), const_tinyint(2)),
-            "b2",
-        ), 
-        aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "c", &accessor)),
-            "bc",
-        ), 
-        aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "d", &accessor)),
-            "bd",
-        ), 
-        aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "e", &accessor)),
-            "be",
-        ), 
-        aliased_plan(
-            divide(column(t, "b", &accessor), column(t, "f", &accessor)),
-            "bf",
-        )],
+            aliased_plan(divide(column(t, "b", &accessor), const_tinyint(2)), "b2"),
+            aliased_plan(
+                divide(column(t, "b", &accessor), column(t, "c", &accessor)),
+                "bc",
+            ),
+            aliased_plan(
+                divide(column(t, "b", &accessor), column(t, "d", &accessor)),
+                "bd",
+            ),
+            aliased_plan(
+                divide(column(t, "b", &accessor), column(t, "e", &accessor)),
+                "be",
+            ),
+            aliased_plan(
+                divide(column(t, "b", &accessor), column(t, "f", &accessor)),
+                "bf",
+            ),
+        ],
         tab(t),
     );
     let verifiable_res = VerifiableQueryResult::new(&ast, &accessor, &());
@@ -83,7 +80,7 @@ fn we_can_prove_int_division_query() {
         tinyint("bc", [0_i8, -3, 0, 0]),
         tinyint("bd", [0_i8, 1, 0, 2]),
         tinyint("be", [0_i8, 1, 0, 1]),
-        tinyint("bf", [0_i8, 0, 0, 0])
+        tinyint("bf", [0_i8, 0, 0, 0]),
     ]);
     assert_eq!(res, expected_res);
 }

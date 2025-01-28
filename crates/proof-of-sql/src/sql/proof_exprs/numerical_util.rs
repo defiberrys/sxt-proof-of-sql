@@ -2,10 +2,10 @@ use crate::base::{
     database::{Column, ColumnarValue, LiteralValue},
     scalar::{Scalar, ScalarExt},
 };
+use arrow::compute::kernels::boolean;
 use bumpalo::Bump;
 use core::{cmp::Ordering, num::Wrapping, ops::Neg};
-use num_traits::{Num, NumCast};
-use num_traits::PrimInt;
+use num_traits::{Num, NumCast, PrimInt};
 
 #[allow(clippy::cast_sign_loss)]
 /// Add or subtract two literals together.
@@ -134,6 +134,40 @@ pub(crate) fn multiply_columns<'a, S: Scalar>(
     })
 }
 
+/// Convert column to scalar slice.
+pub(crate) fn absolute_value_of_columns<'a, S: Scalar>(
+    column_signs: &'a [bool],
+    column: &Column<'a, S>,
+    alloc: &'a Bump,
+) -> Column<'a, S> {
+    assert_eq!(column_signs.len(), column.len());
+    let absolute_value = alloc.alloc_slice_fill_with(column.len(), |i| S::ZERO);
+    for (abs, (sign, value)) in absolute_value.iter_mut().zip(
+        column_signs
+            .iter()
+            .copied()
+            .zip(column.to_scalar_with_scaling(0).iter().copied()),
+    ) {
+        *abs = if sign { value } else { -value }
+    }
+    Column::Scalar(absolute_value)
+}
+
+/// Convert column to inverse.
+pub(crate) fn inverse_of_columns<'a, S: Scalar>(column: Column<'a, S>, alloc: &'a Bump) -> &'a [S] {
+    alloc.alloc_slice_fill_with(column.len(), |i| {
+        column.scalar_at(i).unwrap().inv().unwrap_or(S::ZERO)
+    })
+}
+
+/// Convert column to scalar slice.
+pub(crate) fn columns_to_scalar_slice<'a, S: Scalar>(
+    column: &Column<'a, S>,
+    alloc: &'a Bump,
+) -> &'a [S] {
+    alloc.alloc_slice_fill_with(column.len(), |i| column.scalar_at(i).unwrap())
+}
+
 #[allow(dead_code)]
 /// Multiply two [`ColumnarValues`] together.
 /// # Panics
@@ -188,7 +222,11 @@ pub(crate) fn scale_and_add_subtract_eval<S: Scalar>(
     }
 }
 
-fn divide_integer_columns<
+pub(crate) fn absolute_eval<S: Scalar>(sign_eval: S, eval: S) -> S {
+    (S::TWO * sign_eval - S::ONE) * eval
+}
+
+fn  divide_integer_columns<
     'a,
     L: NumCast + Copy + PrimInt,
     R: NumCast + Copy + PrimInt + Neg<Output = R>,
@@ -203,9 +241,9 @@ fn divide_integer_columns<
         .iter_mut()
         .zip(lhs.iter().copied().zip(rhs.iter().copied()))
         .for_each(|(d, (l, r))| {
-            *d = if l == L::min_value() && r == -R::one(){
+            *d = if l == L::min_value() && r == -R::one() {
                 L::min_value()
-            } else if r == R::zero(){
+            } else if r == R::zero() {
                 L::zero()
             } else if is_right_bigger_int_type {
                 let l_cast: R = NumCast::from(l).unwrap();
@@ -222,7 +260,7 @@ fn modulo_integer_columns<
     'a,
     L: NumCast + Copy + PrimInt,
     R: NumCast + Copy + PrimInt + Neg<Output = R>,
-    O: NumCast + PrimInt
+    O: NumCast + PrimInt,
 >(
     lhs: &&[L],
     rhs: &&[R],
@@ -234,9 +272,9 @@ fn modulo_integer_columns<
         .iter_mut()
         .zip(lhs.iter().copied().zip(rhs.iter().copied()))
         .for_each(|(m, (l, r))| {
-            *m = if l == L::min_value() && r == -R::one(){
+            *m = if l == L::min_value() && r == -R::one() {
                 O::zero()
-            } else if r == R::zero(){
+            } else if r == R::zero() {
                 NumCast::from(l).unwrap()
             } else if is_right_bigger_int_type {
                 let l_cast: R = NumCast::from(l).unwrap();
@@ -247,6 +285,82 @@ fn modulo_integer_columns<
             }
         });
     remainder
+}
+
+pub(crate) fn sign_column<'a, S: Scalar>(column: &Column<'a, S>, alloc: &'a Bump) -> Column<'a, S> {
+    match column {
+        Column::Int128(col) => {
+            Column::Int128(alloc.alloc_slice_fill_with(col.len(), |i| col[i].signum()))
+        }
+        Column::BigInt(col) => {
+            Column::BigInt(alloc.alloc_slice_fill_with(col.len(), |i| col[i].signum()))
+        }
+        Column::Int(col) => {
+            Column::Int(alloc.alloc_slice_fill_with(col.len(), |i| col[i].signum()))
+        }
+        Column::SmallInt(col) => {
+            Column::SmallInt(alloc.alloc_slice_fill_with(col.len(), |i| col[i].signum()))
+        }
+        Column::TinyInt(col) => {
+            Column::TinyInt(alloc.alloc_slice_fill_with(col.len(), |i| col[i].signum()))
+        }
+        _ => todo!(),
+    }
+}
+
+pub(crate) fn sign_column_zero_positive<'a, S: Scalar>(
+    column: &Column<'a, S>,
+    alloc: &'a Bump,
+) -> Column<'a, S> {
+    match column {
+        Column::Int128(col) => {
+            Column::Int128(alloc.alloc_slice_fill_with(
+                col.len(),
+                |i| {
+                    if col[i] < 0 {
+                        -1
+                    } else {
+                        1
+                    }
+                },
+            ))
+        }
+        Column::BigInt(col) => {
+            Column::BigInt(alloc.alloc_slice_fill_with(
+                col.len(),
+                |i| {
+                    if col[i] < 0 {
+                        -1
+                    } else {
+                        1
+                    }
+                },
+            ))
+        }
+        Column::Int(col) => {
+            Column::Int(alloc.alloc_slice_fill_with(col.len(), |i| if col[i] < 0 { -1 } else { 1 }))
+        }
+        Column::SmallInt(col) => Column::SmallInt(alloc.alloc_slice_fill_with(col.len(), |i| {
+            if col[i] < 0 {
+                -1
+            } else {
+                1
+            }
+        })),
+        Column::TinyInt(col) => {
+            Column::TinyInt(alloc.alloc_slice_fill_with(
+                col.len(),
+                |i| {
+                    if col[i] < 0 {
+                        -1
+                    } else {
+                        1
+                    }
+                },
+            ))
+        }
+        _ => todo!(),
+    }
 }
 
 /// Divide one column by another.
